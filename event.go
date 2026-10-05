@@ -29,6 +29,9 @@ type Event struct {
 	ch        []Hook          // hooks from context
 	skipFrame int             // The number of additional frames to skip when printing the caller.
 	ctx       context.Context // Optional Go context for event
+
+	deferred    []deferredField   // lazily generated fields, see Defer/MsgDeferred
+	deferPolicy DeferFailurePolicy // policy applied when a deferred generator fails
 }
 
 func putEvent(e *Event) {
@@ -39,6 +42,8 @@ func putEvent(e *Event) {
 	e.ch = nil
 	e.skipFrame = 0
 	e.ctx = nil
+	e.deferred = nil
+	e.deferPolicy = DeferReject
 	e.buf = e.buf[:0]
 
 	// Proper usage of a sync.Pool requires each entry to have approximately
