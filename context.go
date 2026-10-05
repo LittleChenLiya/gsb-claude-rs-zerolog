@@ -225,6 +225,54 @@ func (c Context) Err(err error) Context {
 	return c.AnErr(ErrorFieldName, err)
 }
 
+// SafeErr adds the field "error" with a safely encoded error chain to the
+// logger context. If err is nil, no field is added.
+//
+// Unlike Err, this method never calls Error() or MarshalJSON on arbitrary
+// errors (which may leak sensitive text or have side effects). It only emits
+// the concrete type, depth level, cause edges, and explicit truncation/cycle
+// markers. Verbatim error text is only emitted for types registered as safe
+// via SafeErrorConfig.RegisterSafeType.
+//
+// The configuration is taken from DefaultSafeErrorConfig. To supply a custom
+// configuration, use SafeErrWith.
+func (c Context) SafeErr(err error) Context {
+	return c.SafeAnErrWith(ErrorFieldName, err, DefaultSafeErrorConfig)
+}
+
+// SafeAnErr adds the field key with a safely encoded error chain to the
+// logger context. If err is nil, no field is added.
+//
+// See SafeErr for the safety guarantees. The configuration is taken from
+// DefaultSafeErrorConfig; use SafeAnErrWith for a custom configuration.
+func (c Context) SafeAnErr(key string, err error) Context {
+	return c.SafeAnErrWith(key, err, DefaultSafeErrorConfig)
+}
+
+// SafeErrWith adds the field "error" with a safely encoded error chain to the
+// logger context using the supplied configuration. If err is nil, no field is
+// added. If cfg is nil, DefaultSafeErrorConfig is used.
+//
+// See SafeErr for the safety guarantees.
+func (c Context) SafeErrWith(err error, cfg *SafeErrorConfig) Context {
+	return c.SafeAnErrWith(ErrorFieldName, err, cfg)
+}
+
+// SafeAnErrWith adds the field key with a safely encoded error chain to the
+// logger context using the supplied configuration. If err is nil, no field is
+// added. If cfg is nil, DefaultSafeErrorConfig is used.
+//
+// See SafeErr for the safety guarantees.
+func (c Context) SafeAnErrWith(key string, err error, cfg *SafeErrorConfig) Context {
+	if err == nil {
+		return c
+	}
+	if cfg == nil {
+		cfg = DefaultSafeErrorConfig
+	}
+	return c.Object(key, NewSafeErrorChain(err, cfg))
+}
+
 // Ctx adds the context.Context to the logger context. The context.Context is
 // not rendered in the error message, but is made available for hooks to use.
 // A typical use case is to extract tracing information from the

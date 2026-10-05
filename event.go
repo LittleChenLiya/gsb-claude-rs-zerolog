@@ -492,6 +492,57 @@ func (e *Event) Stack() *Event {
 	return e
 }
 
+// SafeErr adds the field "error" with a safely encoded error chain to the
+// *Event context. If err is nil, no field is added.
+//
+// Unlike Err, this method never calls Error() or MarshalJSON on arbitrary
+// errors (which may leak sensitive text or have side effects). It only emits
+// the concrete type, depth level, cause edges, and explicit truncation/cycle
+// markers. Verbatim error text is only emitted for types registered as safe
+// via SafeErrorConfig.RegisterSafeType.
+//
+// The configuration is taken from DefaultSafeErrorConfig. To supply a custom
+// configuration, use SafeErrWith.
+func (e *Event) SafeErr(err error) *Event {
+	return e.SafeAnErrWith(ErrorFieldName, err, DefaultSafeErrorConfig)
+}
+
+// SafeAnErr adds the field key with a safely encoded error chain to the
+// *Event context. If err is nil, no field is added.
+//
+// See SafeErr for the safety guarantees. The configuration is taken from
+// DefaultSafeErrorConfig; use SafeAnErrWith for a custom configuration.
+func (e *Event) SafeAnErr(key string, err error) *Event {
+	return e.SafeAnErrWith(key, err, DefaultSafeErrorConfig)
+}
+
+// SafeErrWith adds the field "error" with a safely encoded error chain to the
+// *Event context using the supplied configuration. If err is nil, no field is
+// added. If cfg is nil, DefaultSafeErrorConfig is used.
+//
+// See SafeErr for the safety guarantees.
+func (e *Event) SafeErrWith(err error, cfg *SafeErrorConfig) *Event {
+	return e.SafeAnErrWith(ErrorFieldName, err, cfg)
+}
+
+// SafeAnErrWith adds the field key with a safely encoded error chain to the
+// *Event context using the supplied configuration. If err is nil, no field is
+// added. If cfg is nil, DefaultSafeErrorConfig is used.
+//
+// See SafeErr for the safety guarantees.
+func (e *Event) SafeAnErrWith(key string, err error, cfg *SafeErrorConfig) *Event {
+	if e == nil {
+		return e
+	}
+	if err == nil {
+		return e
+	}
+	if cfg == nil {
+		cfg = DefaultSafeErrorConfig
+	}
+	return e.Object(key, NewSafeErrorChain(err, cfg))
+}
+
 // Ctx adds the Go Context to the *Event context.  The context is not rendered
 // in the output message, but is available to hooks and to Func() calls via the
 // GetCtx() accessor. A typical use case is to extract tracing information from
